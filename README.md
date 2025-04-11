@@ -21,6 +21,8 @@ Designed for:
 Step 1: Clone the repo
 ```bash
 git clone https://github.com/ekisanon/anyone-secure-vm-hardening.git
+
+( bash <(curl -s https://raw.githubusercontent.com/ekisanon-anyone/ANyONe-secure-vm-hardering/main/harden.sh ) *COPY-PASTE*
 cd anyone-secure-vm-hardening
 
 Step 2: Run the script as root
