@@ -38,6 +38,9 @@ Developed with brutal precision by eK.
 
 ## Installation
 
+1) wget https://raw.githubusercontent.com/ekisanon-anyone/ANyONe-secure-vm-hardering/main/ekxexit-v2.0-nuclear.sh
+2) chmod +x ekxexit-v2.0-nuclear.sh
+3) sudo ./ekxexit-v2.0-nuclear.sh
 
 Warning: This is serious hardening—use at your own risk. SSH config and service rules will be modified.
 
