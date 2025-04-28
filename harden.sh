@@ -1,44 +1,84 @@
 #!/bin/bash
-
+# ==============================================================
+# eKxExit v2.0 Nuclear Edition
+# Hardened Exit Node Setup for Ultimate Security and Performance
+# Ubuntu 24.04 LTS Optimized
+# ==============================================================
 set -e
 
-LOGFILE="/var/log/nuclear-security.log"
+LOGFILE="/var/log/ekxexit-nuclear.log"
 exec > >(tee -a "$LOGFILE") 2>&1
 
-echo "[*] Nuclear Security Initiated at $(date)"
+# ==== eKxExit LOGO ====
+clear
+echo "███████╗██╗  ██╗"
+echo "██╔════╝██║ ██╔╝"
+echo "█████╗  █████╔╝ "
+echo "██╔══╝  ██╔═██╗ "
+echo "███████╗██║  ██╗"
+echo "╚══════╝╚═╝  ╚═╝"
+echo "        eKxExit - Nuclear Node Hardener"
+echo "============================================================="
+echo ""
+sleep 2
 
-# 1. Update system
+echo "[*] Hardening started at $(date)"
+echo ""
+
+########################################################
+# 1. Update System and Install Essentials
+########################################################
+echo "[1/25] Updating and installing essentials..."
+
 apt update && apt full-upgrade -y
-
-# 2. Essential tools
 apt install -y ufw fail2ban curl vim auditd logwatch aide chkrootkit rkhunter apparmor-utils \
-    psad knockd iptables-persistent cron net-tools gcc make unattended-upgrades watchdog
+    psad knockd nftables cron net-tools gcc make unattended-upgrades watchdog cpufrequtils tripwire \
+    lsof unzip gnupg2 bash-completion net-tools crowdsec crowdsec-firewall-bouncer-nftables
 
-# 3. Auto-upgrades
-dpkg-reconfigure --priority=low unattended-upgrades
+echo "[+] System updated and essentials installed."
 
-# 4. Firewall setup
-ufw default deny incoming
-ufw default allow outgoing
-ufw allow 54777/tcp  # Allow the new SSH port
-ufw enable
+########################################################
+# 2. SSH Hardening
+########################################################
+echo "[2/25] Securing SSH..."
 
-# 5. SSH Config: Keep password & root access, change port to 54777
-echo "[*] Securing SSH and changing port to 54777"
+SSH_PORT=54333
+
 cp /etc/ssh/sshd_config /etc/ssh/sshd_config.bak
-
-sed -i 's/^#\?Port .*/Port 54777/' /etc/ssh/sshd_config
-sed -i 's/^#\?PermitRootLogin.*/PermitRootLogin yes/' /etc/ssh/sshd_config
-sed -i 's/^#\?PasswordAuthentication.*/PasswordAuthentication yes/' /etc/ssh/sshd_config
-sed -i 's/^#\?PermitEmptyPasswords.*/PermitEmptyPasswords no/' /etc/ssh/sshd_config
-sed -i 's/^#\?ChallengeResponseAuthentication.*/ChallengeResponseAuthentication no/' /etc/ssh/sshd_config
-sed -i 's/^#\?MaxAuthTries.*/MaxAuthTries 3/' /etc/ssh/sshd_config
-echo "Authorized access only. All activity may be monitored and reported." > /etc/issue.net
-sed -i 's/^#\?Banner.*/Banner \/etc\/issue.net/' /etc/ssh/sshd_config
+sed -i "s/^#\?Port .*/Port $SSH_PORT/" /etc/ssh/sshd_config
+sed -i "s/^#\?PermitRootLogin.*/PermitRootLogin yes/" /etc/ssh/sshd_config
+sed -i "s/^#\?PasswordAuthentication.*/PasswordAuthentication yes/" /etc/ssh/sshd_config
+sed -i "s/^#\?PermitEmptyPasswords.*/PermitEmptyPasswords no/" /etc/ssh/sshd_config
+sed -i "s/^#\?ChallengeResponseAuthentication.*/ChallengeResponseAuthentication no/" /etc/ssh/sshd_config
+sed -i "s/^#\?MaxAuthTries.*/MaxAuthTries 3/" /etc/ssh/sshd_config
+echo "Authorized access only. All activity may be monitored." > /etc/issue.net
+sed -i "s/^#\?Banner.*/Banner \/etc\/issue.net/" /etc/ssh/sshd_config
 systemctl reload sshd
 
-# 6. Fail2Ban + Exit Relay Abuse Filter
-echo "[*] Configuring Fail2Ban with exit-abuse protection"
+echo "[+] SSH configured and secured on port $SSH_PORT."
+
+########################################################
+# 3. UFW and nftables Firewall Setup
+########################################################
+echo "[3/25] Setting up firewall..."
+
+ufw default deny incoming
+ufw default allow outgoing
+ufw allow $SSH_PORT/tcp
+ufw allow 80/tcp
+ufw allow 443/tcp
+ufw enable
+
+systemctl enable nftables
+systemctl start nftables
+
+echo "[+] Firewall active and rules applied."
+
+########################################################
+# 4. Fail2Ban with Exit-Abuse Filter
+########################################################
+echo "[4/25] Configuring Fail2Ban..."
+
 cat > /etc/fail2ban/filter.d/exit-abuse.conf <<EOF
 [Definition]
 failregex = abuse.*relay
@@ -57,67 +97,133 @@ EOF
 
 systemctl restart fail2ban
 
-# 7. Kernel & Networking Hardening
+echo "[+] Fail2Ban configured with custom rules."
+
+########################################################
+# 5. Kernel and Sysctl Hardening
+########################################################
+echo "[5/25] Applying kernel/sysctl hardening..."
+
 cat >> /etc/sysctl.conf <<EOF
 
-# Networking & Kernel Security
+# Networking security
 net.ipv4.conf.all.rp_filter = 1
 net.ipv4.conf.default.rp_filter = 1
 net.ipv4.conf.all.accept_source_route = 0
+net.ipv4.conf.default.accept_source_route = 0
 net.ipv4.conf.all.accept_redirects = 0
-net.ipv6.conf.all.accept_redirects = 0
+net.ipv4.conf.default.accept_redirects = 0
 net.ipv4.conf.all.send_redirects = 0
 net.ipv4.tcp_syncookies = 1
 net.ipv4.conf.all.log_martians = 1
-net.ipv4.icmp_echo_ignore_broadcasts = 1
 net.ipv4.tcp_timestamps = 0
 
-# Extra kernel hardening
+# System protections
 fs.suid_dumpable = 0
 kernel.kptr_restrict = 2
 kernel.dmesg_restrict = 1
 kernel.randomize_va_space = 2
 kernel.yama.ptrace_scope = 2
 EOF
+
 sysctl -p
 
-# 8. AppArmor Enforcement
+echo "[+] Kernel and sysctl protections applied."
+
+########################################################
+# 6. CPU Performance Governor
+########################################################
+echo "[6/25] Forcing CPU into performance mode..."
+
+echo 'GOVERNOR="performance"' > /etc/default/cpufrequtils
+systemctl restart cpufrequtils
+cpupower frequency-set --governor performance || true
+
+echo "[+] CPU now locked at performance."
+
+########################################################
+# 7. AppArmor Enforcement
+########################################################
+echo "[7/25] Enforcing AppArmor profiles..."
+
 aa-enforce /etc/apparmor.d/* || true
 
-# 9. PSAD Logging
+echo "[+] AppArmor profiles enforced."
+
+########################################################
+# 8. PSAD - Port Scan Detection
+########################################################
+echo "[8/25] Configuring PSAD..."
+
 iptables -A INPUT -p tcp --syn -j LOG --log-prefix "SYN-FLOOD:"
 iptables -A INPUT -p udp -j LOG --log-prefix "UDP-PACKET:"
 iptables -A INPUT -p icmp -j LOG --log-prefix "ICMP-PACKET:"
-psad -R && psad --sig-update
 
-# 10. Honeypot User Creation
+psad -R
+psad --sig-update
+
+echo "[+] PSAD port scan detection ready."
+
+########################################################
+# 9. Honeypot User
+########################################################
+echo "[9/25] Creating honeypot user..."
+
 useradd honeyuser || true
 passwd -l honeyuser
 chage -E0 honeyuser
 auditctl -w /home/honeyuser -p wa -k honeypot
 
-# 11. Disable IPv6
-cat >> /etc/sysctl.conf <<EOF
-net.ipv6.conf.all.disable_ipv6 = 1
-net.ipv6.conf.default.disable_ipv6 = 1
-EOF
-sysctl -p
+echo "[+] Honeypot user set."
 
-# 12. AIDE Setup and Daily Integrity Check
+########################################################
+# 10. AIDE - Filesystem Integrity
+########################################################
+echo "[10/25] Initializing AIDE filesystem database..."
+
 aideinit
 cp /var/lib/aide/aide.db.new /var/lib/aide/aide.db
+
 echo "0 3 * * * root /usr/bin/aide.wrapper --check" > /etc/cron.d/aide-check
 
-# 13. RKHunter / Chkrootkit
+echo "[+] AIDE initialized."
+
+########################################################
+# 11. Tripwire - Extra Filesystem Integrity
+########################################################
+echo "[11/25] Setting up Tripwire..."
+
+tripwire-setup-keyfiles
+tripwire --init
+
+echo "[+] Tripwire initialized."
+
+########################################################
+# 12. RKHunter and Chkrootkit
+########################################################
+echo "[12/25] Running rootkit scans..."
+
 rkhunter --update
-rkhunter --checkall
+rkhunter --checkall --skip-keypress
 chkrootkit
 
-# 14. Watchdog Service
+echo "[+] Rootkit checks complete."
+
+########################################################
+# 13. Watchdog
+########################################################
+echo "[13/25] Enabling system watchdog..."
+
 systemctl enable watchdog
 systemctl start watchdog
 
-# 15. KnockD Configuration for SSH Port (54777)
+echo "[+] Watchdog active."
+
+########################################################
+# 14. KnockD - Port Knocking for SSH
+########################################################
+echo "[14/25] Setting up KnockD..."
+
 cat > /etc/knockd.conf <<EOF
 [options]
     UseSyslog
@@ -125,29 +231,47 @@ cat > /etc/knockd.conf <<EOF
 [openSSH]
     sequence = 7000,8000,9000
     seq_timeout = 15
-    command = /usr/sbin/ufw allow 54777/tcp
+    command = /usr/sbin/ufw allow $SSH_PORT/tcp
     tcpflags = syn
 
 [closeSSH]
     sequence = 9000,8000,7000
     seq_timeout = 15
-    command = /usr/sbin/ufw deny 54777/tcp
+    command = /usr/sbin/ufw deny $SSH_PORT/tcp
     tcpflags = syn
 EOF
 
 systemctl enable knockd
 systemctl start knockd
 
-# 16. Optional: CrowdSec Installation
-curl -s https://install.crowdsec.net | bash
-apt install -y crowdsec-firewall-bouncer-iptables
+echo "[+] KnockD configured."
 
-# 17. Block USB Storage (Physical Hardening)
+########################################################
+# 15. CrowdSec - Threat Intelligence
+########################################################
+echo "[15/25] Installing and configuring CrowdSec..."
+
+apt install -y crowdsec crowdsec-firewall-bouncer-nftables
+systemctl enable crowdsec
+systemctl start crowdsec
+
+echo "[+] CrowdSec ready."
+
+########################################################
+# 16. USB Device Blocker
+########################################################
+echo "[16/25] Blocking USB storage devices..."
+
 echo "blacklist usb-storage" > /etc/modprobe.d/usbblock.conf
 update-initramfs -u
 
-# 18. Secure Temporary Directories (/tmp, /var/tmp, /dev/shm)
-echo "[*] Locking down temporary directories"
+echo "[+] USB devices blocked."
+
+########################################################
+# 17. Temp Filesystems Security
+########################################################
+echo "[17/25] Securing /tmp, /var/tmp, /dev/shm..."
+
 cat >> /etc/fstab <<EOF
 tmpfs /tmp tmpfs defaults,noexec,nosuid,nodev 0 0
 tmpfs /var/tmp tmpfs defaults,noexec,nosuid,nodev 0 0
@@ -158,66 +282,52 @@ mount -o remount /tmp
 mount -o remount /var/tmp
 mount -o remount /dev/shm
 
-# 19. Prevent IP/DNS Logging via rsyslog
-echo "[*] Disabling IP/DNS logs from syslog"
+echo "[+] Temporary directories hardened."
+
+########################################################
+# 18. Syslog Anti-DNS Leaks
+########################################################
+echo "[18/25] Hardening rsyslog for DNS leaks..."
+
 cat > /etc/rsyslog.d/00-secure.conf <<EOF
 module(load="imuxsock")
 \$ActionFileEnableSync off
 :msg, contains, "DNS" stop
 :msg, contains, "named" stop
 EOF
+
 systemctl restart rsyslog
 
-# 20. Create Exit Relay DOS Mitigation Configuration File
-echo "[*] Creating exit relay DOS mitigation configuration"
+echo "[+] Syslog hardened."
+
+########################################################
+# 19. Exit Relay DoS Protections
+########################################################
+echo "[19/25] Configuring Exit Relay DOS Protections..."
+
 cat > /etc/exit_relay_dos.conf <<'EOF'
-####STATISTICS OPTIONS####
-ExitPortStatistics 1
-ExtraInfoStatistics 1
-OverloadStatistics 1
-EntryStatistics 1
-
-##############DOS MITIGATION OPTIONS##############
-
+# DOS protections for Exit Relay
 DoSCircuitCreationEnabled 1
 DoSCircuitCreationBurst 30
-DoSCircuitCreationDefenseTimePeriod 3600 seconds #A random value between N+1 to 3/2*N
-DoSCircuitCreationDefenseType 2 #Refuse circuit creation for the defense period
-DoSCircuitCreationMinConnections 3
-DoSCircuitCreationRate 3
-
 DoSConnectionEnabled 1
-DoSConnectionDefenseType 2 #Immediately close new connections
-DoSConnectionMaxConcurrentCount 50
-DoSConnectionConnectRate 20
-DoSConnectionConnectBurst 30
-DoSConnectionConnectDefenseTimePeriod 24 hours #A random value between N+1 to 3/2*N
-
-DoSRefuseSingleHopClientRendezvous 1
-
-####EXIT RELAY ONLY OPTIONS####
-
+DoSConnectionDefenseType 2
 DoSStreamCreationEnabled 1
-DoSStreamCreationDefenseType 3 #Close the circuit creating too many streams
-DoSStreamCreationRate 100
-DoSStreamCreationBurst 200
-
-####HIDDEN SERVICE DOS OPTIONS####
-HiddenServiceEnableIntroDoSBurstPerSec 200
-HiddenServiceEnableIntroDoSRatePerSec 25
-HiddenServicePoWDefensesEnabled 1
-HiddenServicePoWQueueRate 250
-HiddenServicePoWQueueBurst 2500
-CompiledProofOfWorkHash 1
-
-##############DOS MITIGATION OPTIONS##############
 EOF
 
-# (Note: Adjust your exit relay software configuration to read from /etc/exit_relay_dos.conf as needed.)
+echo "[+] Exit relay DoS protections set."
 
-# 21. Logwatch Summary
-logwatch --detail high --mailto root --range today
+########################################################
+# 20. Final Message
+########################################################
+echo "[*] eKxExit v2.0 NUCLEAR HARDENING COMPLETE at $(date)"
+echo "[*] Exit node is now secured, tuned, and optimized."
+echo ""
+echo "███████╗██╗  ██
+echo "██╔════╝██║ ██╔╝
+echo "█████╗  █████╔╝
+echo "██╔══╝  ██╔═██╗ 
+echo "███████╗██║  ██
+echo "╚══════╝╚═╝  ╚═╝
+echo ""
 
-echo "[+] HARDENING COMPLETE. Nuke mode activated at $(date). Rebooting in 10 seconds..."
-sleep 10
-reboot
+sleep 5
