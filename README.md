@@ -1,40 +1,43 @@
-# ANyONe-secure-vm-hardering
-The ANyONe Network - Secure VM Hardening Script  This is a powerful VM security script made for high-risk servers, exit nodes, and exposed Linux environments. It’s built to lock down Debian/Ubuntu systems with extreme hardening.  Designed for: - Exit nodes 
-# The ANyONe Network - Secure VM Hardening Script
+# eKxExit v2.0 - Nuclear Node Hardener
 
-Designed for:
-- Exit nodes
-- Hacktivist infrastructure
-- Underground dev ops
-- People who don’t want to get caught slippin’
+Maximum security and maximum performance exit relay setup.  
+Built for high-speed, exit-friendly environments running Ubuntu 24.04 LTS.  
+Developed with brutal precision by eK.
+
+---
 
 ## Features
-- Enables root login with password (optional toggle)
-- Applies strict firewall rules (UFW)
-- Disables knockd, fail2ban if needed
-- Removes file immutability locks
-- Opens & restarts SSH properly
-- No need for broken keyboard VNC magic
+
+- Full system update and package hardening
+- SSH port move and banner warning setup
+- Fail2Ban with custom Exit-Abuse protection
+- nftables and UFW hybrid firewall
+- PSAD (Port Scan Attack Detection)
+- AppArmor full enforcement
+- AIDE + Tripwire filesystem integrity monitoring
+- Watchdog service for automatic recovery
+- KnockD for SSH stealth access (port knocking)
+- CrowdSec threat intelligence and firewall
+- USB storage blocking
+- Hardened /tmp, /var/tmp, /dev/shm
+- Hardened sysctl network + kernel parameters
+- Secure rsyslog to prevent IP/DNS leaks
+- Honeypot user trap and audit logging
+- Exit relay DoS protections for Tor/Anyone nodes
+- Logging everything under /var/log/ekxexit-nuclear.log
+
+---
+
+## Requirements
+
+- Ubuntu 24.04 LTS fresh or clean server
+- Root access (sudo privileges)
+- Recommended: Minimum 4GB RAM and 50GB SSD storage
+
+---
 
 ## Installation
 
-Step 1: Clone the repo
-```bash
-git clone https://github.com/ekisanon/anyone-secure-vm-hardening.git
-
-( bash <(curl -s https://raw.githubusercontent.com/ekisanon-anyone/ANyONe-secure-vm-hardering/main/harden.sh ) *COPY-PASTE*
-cd anyone-secure-vm-hardening
-
-Step 2: Run the script as root
-chmod +x harden.sh
-./harden.sh
-You can also cURL it raw if you trust your own script:
-bash <(curl -s https://raw.githubusercontent.com/your-username/anyone-secure-vm-hardening/main/harden.sh)
-
-Usage
- • Run this right after VPS setup
- • Compatible with Debian/Ubuntu (20.04+)
- • Customize ports or toggle features by editing the script before running
 
 Warning: This is serious hardening—use at your own risk. SSH config and service rules will be modified.
 
